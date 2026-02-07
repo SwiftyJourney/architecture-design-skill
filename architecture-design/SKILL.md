@@ -58,6 +58,7 @@ This skill follows these principles:
 **Objective**: Identify components, responsibilities, and architectural boundaries
 
 **Actions**:
+
 1. Break down feature into distinct responsibilities
 2. Identify core business logic vs infrastructure concerns
 3. Recognize cross-cutting concerns (logging, analytics, caching)
@@ -65,6 +66,7 @@ This skill follows these principles:
 5. Identify potential architectural boundaries
 
 **Key Questions to Ask**:
+
 - What is the core business logic?
 - What are the external dependencies (network, database, UI)?
 - What needs to be testable in isolation?
@@ -84,26 +86,31 @@ This skill follows these principles:
 **SOLID Breakdown**:
 
 #### S - Single Responsibility Principle (SRP)
+
 - Each class/module has one reason to change
 - Separate business logic from infrastructure
 - One responsibility per component
 
 **Example Violations**:
+
 - ❌ A class that loads data AND presents it
 - ❌ A view controller that makes network requests
 - ❌ A model that knows how to save itself
 
 **Example Solutions**:
+
 - ✅ Separate UseCase for business logic
 - ✅ Separate Loader for data fetching
 - ✅ Separate Presenter for view logic
 
 #### O - Open/Closed Principle (OCP)
+
 - Open for extension, closed for modification
 - Use protocols/interfaces for abstraction
 - Compose behaviors instead of inheritance
 
 **Example Pattern**:
+
 ```swift
 // Open for extension via protocols
 protocol FeedLoader {
@@ -117,16 +124,19 @@ class FallbackFeedLoader: FeedLoader { ... }
 ```
 
 #### L - Liskov Substitution Principle (LSP)
+
 - Subtypes must be substitutable for base types
 - Contracts must be honored by implementations
 - No surprising behavior in substitutions
 
 #### I - Interface Segregation Principle (ISP)
+
 - Clients shouldn't depend on interfaces they don't use
 - Create focused, specific interfaces
 - Avoid fat interfaces
 
 **Example**:
+
 ```swift
 // ❌ Fat interface
 protocol DataStore {
@@ -148,11 +158,13 @@ protocol DataLoader {
 ```
 
 #### D - Dependency Inversion Principle (DIP)
+
 - High-level modules don't depend on low-level modules
 - Both depend on abstractions
 - Abstractions don't depend on details
 
 **Example**:
+
 ```swift
 // High-level policy
 class FeedViewController {
@@ -179,7 +191,7 @@ class APIFeedLoader: FeedLoader { ... }
 
 **The Clean Architecture Layers**:
 
-```
+```plaintext
 ┌─────────────────────────────────────────┐
 │          Presentation Layer             │
 │    (UI, ViewModels, Presenters)        │
@@ -221,7 +233,8 @@ class APIFeedLoader: FeedLoader { ... }
    - Keep business logic clean
 
 **Example Structure**:
-```
+
+```plaintext
 Feature/
 ├── Domain/
 │   ├── UseCases/
@@ -254,7 +267,7 @@ Feature/
 
 **Testing Pyramid**:
 
-```
+```plaintext
         ┌──────────┐
         │    UI    │ Few - End to End
         ├──────────┤
@@ -284,12 +297,14 @@ Feature/
 **Key Testing Patterns**:
 
 **Test Doubles**:
+
 - **Stubs**: Provide canned answers
 - **Spies**: Record calls for verification
 - **Mocks**: Verify behavior expectations
 - **Fakes**: Working implementations for testing
 
 **Example Test Structure**:
+
 ```swift
 class LoadFeedUseCaseTests: XCTestCase {
     func test_load_deliversItemsOnLoaderSuccess() {
@@ -320,6 +335,7 @@ class LoadFeedUseCaseTests: XCTestCase {
 ```
 
 **Testing Strategies**:
+
 - Test behavior, not implementation
 - Test one thing at a time
 - Use descriptive test names
@@ -470,6 +486,7 @@ This skill works seamlessly with the Requirements Engineering Skill:
 ## Language-Specific Guidance
 
 ### Swift/iOS
+
 - Use protocols for abstractions
 - Leverage Swift's value types
 - Apply Composition Root pattern in AppDelegate/SceneDelegate
@@ -478,6 +495,7 @@ This skill works seamlessly with the Requirements Engineering Skill:
 **Reference**: See `examples/swift/` for Swift-specific patterns
 
 ### Generic/Agnostic
+
 - Apply SOLID principles universally
 - Use interfaces/traits/protocols depending on language
 - Adapt patterns to language features
@@ -523,6 +541,7 @@ When applying this skill, provide:
 ## Credits
 
 Based on the Essential Developer's proven architecture methodology:
+
 - [Essential Feed Case Study](https://github.com/essentialdevelopercom/essential-feed-case-study)
 - [Essential Developer Resources](https://www.essentialdeveloper.com/)
 
