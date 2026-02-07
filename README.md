@@ -70,7 +70,7 @@ See the [Installation Guide](docs/INSTALLATION.md) for detailed instructions.
 
 Try this prompt:
 
-```
+```plaintext
 I have this view controller that makes network requests, parses JSON, 
 and updates the UI. How can I refactor it to follow Clean Architecture?
 ```
@@ -91,7 +91,7 @@ When you use this skill, you get:
 
 **Component Analysis:**
 
-```
+```plaintext
 Current Issues:
 - View Controller violates SRP (networking + parsing + UI)
 - Direct dependency on URLSession (violates DIP)
@@ -182,7 +182,7 @@ class RemoteFeedLoaderTests: XCTestCase {
 
 ## What's Included
 
-```
+```plaintext
 architecture-design/
 ├── SKILL.md                         # Main skill (5-step process)
 ├── references/
@@ -248,6 +248,7 @@ architecture-design/
 **Input:** "This UserManager class handles authentication, profile updates, and analytics. How do I refactor it?"
 
 **Output:**
+
 * Identified SRP violations
 * Proposed separation: AuthService, ProfileService, Analytics
 * Created protocols for each responsibility
@@ -258,6 +259,7 @@ architecture-design/
 **Input:** "I need to add offline caching to my feed loader. How do I do this without breaking existing code?"
 
 **Output:**
+
 * Applied Open/Closed Principle
 * Created FeedCache protocol
 * Implemented FeedLoaderCacheDecorator
@@ -268,6 +270,7 @@ architecture-design/
 **Input:** "My view controller directly uses URLSession. How do I make it testable?"
 
 **Output:**
+
 * Identified DIP violation
 * Created HTTPClient protocol
 * Injected dependency through initializer
