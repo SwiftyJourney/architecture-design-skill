@@ -1,0 +1,39 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Package skill
+        run: |
+          cd architecture-design
+          zip -r ../architecture-design.skill . -x "*.DS_Store"
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: architecture-design.skill
+          body: |
+            ## Architecture & Design Principles Skill
+            
+            Transform codebases into clean, testable architectures using SOLID principles and Clean Architecture.
+            
+            ### Installation
+            
+            Download `architecture-design.skill` and upload to your Claude project, or use:
+            ```bash
+            npx skills add SwiftyJourney/architecture-design-skill
+            ```
+            
+            ### What's New
+            See [CHANGELOG.md](CHANGELOG.md) for details.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
