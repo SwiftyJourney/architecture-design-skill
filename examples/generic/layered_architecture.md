@@ -1,49 +1,74 @@
 # Layered Architecture (Language-Agnostic)
 
-Generic examples applicable to any programming language.
+Generic examples applicable to any project and any programming language. Entity names are intentionally neutral — substitute your own domain types.
 
 ---
 
 ## The Four Layers
 
+```
+Presentation Layer   →   Domain Layer   ←   Infrastructure Layer
+(UI, ViewModels)         (Entities,          (Network, DB,
+                          Use Cases)          Frameworks)
+```
+
+**Dependency Rule**: Dependencies point inward only. Infrastructure depends on Domain (via interfaces); Presentation depends on Domain. Nothing in Domain knows about Infrastructure or UI.
+
+---
+
 ### 1. Domain Layer (Core Business Logic)
 
-**Entities:**
+**Entities** — plain data, no framework dependencies:
+
 ```
-// Pseudocode
-class FeedItem {
+// Pseudocode — replace Item/Comment with your own types
+struct Item {
     id: UUID
+    title: String
     description: String?
-    location: String?
-    imageURL: URL
-}
-
-class ImageComment {
-    id: UUID
-    message: String
     createdAt: DateTime
-    author: CommentAuthor
+}
+
+struct Comment {
+    id: UUID
+    body: String
+    author: String
+    createdAt: DateTime
 }
 ```
 
-**Use Cases:**
+**Use Cases** — business rules, defined as interfaces:
+
 ```
-interface FeedLoader {
-    function load(completion: Callback<Result<List<FeedItem>, Error>>)
+// Async boundary: IO operations use async/await (or equivalent)
+interface ItemLoader {
+    function load() async throws -> List<Item>
 }
 
-class LoadFeedUseCase implements FeedLoader {
-    private httpClient: HTTPClient
-    
-    function load(completion: Callback<Result<List<FeedItem>, Error>>) {
-        httpClient.get(url) { response ->
-            if (response.isSuccess) {
-                items = parse(response.data)
-                completion(Success(items))
-            } else {
-                completion(Failure(error))
-            }
+interface ItemCache {
+    function save(items: List<Item>) throws
+    function loadCached() throws -> List<Item>?
+}
+
+// Concrete use case: remote load with optional caching
+class RemoteItemLoader implements ItemLoader {
+    private client: HTTPClient
+
+    function load() async throws -> List<Item> {
+        let (data, response) = try await client.get(url)
+        return try ItemsMapper.map(data, response)
+    }
+}
+
+class CachedItemLoader implements ItemLoader {
+    private store: ItemStore
+
+    function load() throws -> List<Item> {
+        let cached = try store.retrieve()
+        guard let cache = cached, CachePolicy.isValid(cache.timestamp) else {
+            return []
         }
+        return cache.items
     }
 }
 ```
@@ -52,131 +77,135 @@ class LoadFeedUseCase implements FeedLoader {
 
 ### 2. Infrastructure Layer (External Details)
 
-**Network Adapter:**
+**Network Adapter**:
+
 ```
+// Interface (defined in Domain layer)
 interface HTTPClient {
-    function get(url: URL, completion: Callback<Result<HTTPResponse, Error>>)
+    function get(url: URL) async throws -> (Data, HTTPResponse)
 }
 
-class URLSessionHTTPClient implements HTTPClient {
-    function get(url: URL, completion: Callback<Result<HTTPResponse, Error>>) {
+// Concrete adapter (lives in Infrastructure layer)
+class NetworkHTTPClient implements HTTPClient {
+    function get(url: URL) async throws -> (Data, HTTPResponse) {
         // Platform-specific HTTP implementation
-        networkLibrary.request(url) { response ->
-            completion(response)
-        }
+        return try await httpLibrary.request(url)
     }
 }
 ```
 
-**Database Adapter:**
+**Database Adapter**:
+
 ```
-interface FeedStore {
-    function save(items: List<FeedItem>)
-    function load(): List<FeedItem>?
+// Interface (defined in Domain layer — sync throws)
+interface ItemStore {
+    function retrieve() throws -> CachedItems?
+    function insert(items: List<LocalItem>, timestamp: DateTime) throws
+    function delete() throws
 }
 
-class SQLiteFeedStore implements FeedStore {
-    function save(items: List<FeedItem>) {
-        database.transaction {
-            database.deleteAll("feed_items")
-            items.forEach { item ->
-                database.insert("feed_items", item)
+// Concrete adapter (lives in Infrastructure)
+class SQLiteItemStore implements ItemStore {
+    function retrieve() throws -> CachedItems? {
+        let rows = try database.query("SELECT * FROM items")
+        return rows.isEmpty ? nil : CachedItems(items: rows.map(toLocal), timestamp: rows.first!.timestamp)
+    }
+
+    function insert(items: List<LocalItem>, timestamp: DateTime) throws {
+        try database.transaction {
+            try database.execute("DELETE FROM items")
+            for item in items {
+                try database.execute("INSERT INTO items ...", item)
             }
         }
     }
-    
-    function load(): List<FeedItem>? {
-        return database.query("SELECT * FROM feed_items")
+
+    function delete() throws {
+        try database.execute("DELETE FROM items")
     }
 }
 ```
+
+> **Why sync for the store?** The store runs on a dedicated queue/thread managed by infrastructure (e.g., CoreData's private queue, SQLite's serial queue). Keeping the protocol synchronous keeps the domain contract simple. A `Scheduler`-style bridge (see `references/concurrency_patterns.md`) handles the thread hop in the infrastructure layer.
 
 ---
 
 ### 3. Presentation Layer (View Logic)
 
-**Presenter:**
+**Presenter / ViewModel** — transforms domain data into display data, no UI framework dependency:
+
 ```
-interface FeedView {
-    function display(viewModel: FeedViewModel)
-    function displayLoading(isLoading: Boolean)
-    function displayError(message: String)
+// View protocol — implemented by the actual UI component
+interface ResourceView<ViewModel> {
+    function display(viewModel: ViewModel)
 }
 
-class FeedPresenter {
-    private view: FeedView
-    private loader: FeedLoader
-    
-    function didRequestFeed() {
-        view.displayLoading(true)
-        
-        loader.load { result ->
-            view.displayLoading(false)
-            
-            if (result.isSuccess) {
-                viewModel = map(result.value)
-                view.display(viewModel)
-            } else {
-                view.displayError("Failed to load feed")
-            }
+interface LoadingView {
+    function displayLoading(isLoading: Boolean)
+}
+
+interface ErrorView {
+    function displayError(message: String?)
+}
+
+// Generic presenter — maps Resource to ViewModel
+class ResourcePresenter<Resource, ViewModel> {
+    private resourceView: ResourceView<ViewModel>
+    private loadingView: LoadingView
+    private errorView: ErrorView
+    private mapper: (Resource) throws -> ViewModel
+
+    function didStartLoading() {
+        errorView.displayError(nil)
+        loadingView.displayLoading(true)
+    }
+
+    function didFinishLoading(resource: Resource) {
+        try {
+            resourceView.display(mapper(resource))
+            loadingView.displayLoading(false)
+        } catch {
+            didFinishLoading(error: error)
         }
     }
-    
-    private function map(items: List<FeedItem>): FeedViewModel {
-        return FeedViewModel(
-            items: items.map { item ->
-                FeedItemViewModel(
-                    description: item.description,
-                    location: item.location,
-                    imageURL: item.imageURL
-                )
-            }
-        )
+
+    function didFinishLoading(error: Error) {
+        errorView.displayError("Failed to load. Please try again.")
+        loadingView.displayLoading(false)
     }
 }
 ```
 
-**View Model:**
-```
-class FeedViewModel {
-    items: List<FeedItemViewModel>
-}
-
-class FeedItemViewModel {
-    description: String?
-    location: String?
-    imageURL: URL
-}
-```
+> **Note:** In Swift this pattern is `LoadResourcePresenter<Resource, View: ResourceView>` — see `references/concurrency_patterns.md` for the full implementation.
 
 ---
 
 ### 4. UI Layer (Framework-Specific)
 
-**View:**
+The UI layer implements the view protocols defined in the Presentation layer:
+
 ```
-class FeedViewController implements FeedView {
-    private presenter: FeedPresenter
-    private items: List<FeedItemViewModel> = []
-    
-    function viewDidLoad() {
-        presenter.didRequestFeed()
+class ItemListViewController implements ResourceView<List<ItemViewModel>>,
+                                           LoadingView,
+                                           ErrorView {
+
+    function display(viewModel: List<ItemViewModel>) {
+        items = viewModel
+        listComponent.reload()
     }
-    
-    function display(viewModel: FeedViewModel) {
-        items = viewModel.items
-        tableView.reload()
-    }
-    
+
     function displayLoading(isLoading: Boolean) {
-        loadingIndicator.visible = isLoading
+        spinner.visible = isLoading
     }
-    
-    function displayError(message: String) {
-        alertView.show(message)
+
+    function displayError(message: String?) {
+        errorBanner.text = message
+        errorBanner.visible = message != nil
     }
 }
 ```
+
+The UI layer should contain NO business logic. All it does is render what the presenter tells it to display.
 
 ---
 
@@ -184,37 +213,48 @@ class FeedViewController implements FeedView {
 
 ```
 UI Layer
-   ↓ depends on
-Presentation Layer
-   ↓ depends on
-Domain Layer
-   ↑ implements
-Infrastructure Layer
+   │ implements
+Presentation Layer (interfaces: ResourceView, LoadingView, ErrorView)
+   │ depends on
+Domain Layer (interfaces: ItemLoader, ItemStore; entities: Item)
+   │ implements
+Infrastructure Layer (NetworkHTTPClient, SQLiteItemStore, ...)
 ```
 
-**Key Rule**: Dependencies point inward only!
+**Key Rule**: The arrow always points from outer layers toward the Domain. Domain never imports Infrastructure.
 
 ---
 
 ## Composition Root
 
+The one place where all concrete types are instantiated and wired together. The composition root is the only place that knows about all the implementations:
+
 ```
 class AppCompositionRoot {
-    function makeMainViewController(): ViewController {
+    function makeItemListScreen() -> UIComponent {
         // Infrastructure
-        httpClient = URLSessionHTTPClient()
-        feedStore = SQLiteFeedStore()
-        
+        let httpClient = NetworkHTTPClient()
+        let itemStore = SQLiteItemStore(path: "items.sqlite")
+
         // Use Cases
-        remoteLoader = RemoteFeedLoader(httpClient)
-        localLoader = LocalFeedLoader(feedStore)
-        compositeLoader = FeedLoaderWithFallback(remoteLoader, localLoader)
-        
+        let remoteLoader = RemoteItemLoader(client: httpClient)
+        let cachedLoader = CachedItemLoader(store: itemStore)
+        let fallbackLoader = FallbackLoader(primary: remoteLoader, fallback: cachedLoader)
+
         // Presentation
-        viewController = FeedViewController()
-        presenter = FeedPresenter(viewController, compositeLoader)
-        viewController.presenter = presenter
-        
+        let viewController = ItemListViewController()
+        let presenter = ResourcePresenter(
+            resourceView: viewController,
+            loadingView: viewController,
+            errorView: viewController,
+            mapper: ItemViewModel.from
+        )
+
+        // Adapter: bridges async loader → presenter
+        let adapter = LoadAdapter(loader: fallbackLoader.load)
+        viewController.onRefresh = adapter.load
+        adapter.presenter = presenter
+
         return viewController
     }
 }
@@ -224,60 +264,97 @@ class AppCompositionRoot {
 
 ## Testing Each Layer
 
-### Domain Layer Tests
+### Domain / Use Case Tests
 
 ```
+// No async callbacks — use native async/await
 test "load delivers items on successful HTTP response" {
     // Arrange
-    sut = RemoteFeedLoader(httpClientSpy)
-    expectedItems = [makeItem(), makeItem()]
-    
+    let client = HTTPClientSpy()
+    let sut = RemoteItemLoader(client: client)
+    let expected = [makeItem(), makeItem()]
+    client.stub(data: encode(expected), response: successResponse())
+
     // Act
-    sut.load { result -> }
-    httpClientSpy.complete(with: expectedItems)
-    
+    let received = try await sut.load()
+
     // Assert
-    assert(result == Success(expectedItems))
+    assert(received == expected)
 }
 
-test "load delivers error on HTTP failure" {
-    // Arrange
-    sut = RemoteFeedLoader(httpClientSpy)
-    
-    // Act
-    sut.load { result -> }
-    httpClientSpy.complete(with: Error())
-    
-    // Assert
-    assert(result.isFailure)
+test "load throws connectivity error on HTTP failure" {
+    let client = HTTPClientSpy()
+    let sut = RemoteItemLoader(client: client)
+    client.stub(error: anyError())
+
+    await assertThrows { try await sut.load() }
 }
 ```
 
 ### Presentation Layer Tests
 
 ```
-test "didRequestFeed displays loading" {
-    // Arrange
-    (presenter, view) = makeSUT()
-    
-    // Act
-    presenter.didRequestFeed()
-    
-    // Assert
-    assert(view.displayedLoading == true)
+test "didStartLoading shows loading and clears error" {
+    let (sut, view) = makeSUT()
+
+    sut.didStartLoading()
+
+    assert(view.isLoading == true)
+    assert(view.errorMessage == nil)
 }
 
-test "didRequestFeed displays items on success" {
-    // Arrange
-    (presenter, view, loader) = makeSUT()
-    items = [makeItem(), makeItem()]
-    
-    // Act
-    presenter.didRequestFeed()
-    loader.complete(with: items)
-    
-    // Assert
-    assert(view.displayedViewModel.items.count == 2)
+test "didFinishLoading maps resource to view model" {
+    let (sut, view) = makeSUT()
+    let items = [makeItem(), makeItem()]
+
+    sut.didFinishLoading(resource: items)
+
+    assert(view.displayedItems.count == 2)
+    assert(view.isLoading == false)
+}
+
+// Helper
+function makeSUT() -> (ResourcePresenter, ViewSpy) {
+    let view = ViewSpy()
+    let sut = ResourcePresenter(resourceView: view, loadingView: view, errorView: view, mapper: identity)
+    return (sut, view)
+}
+```
+
+---
+
+## Composition Patterns
+
+### Decorator (add behavior without modifying)
+
+```
+class CachingItemLoader implements ItemLoader {
+    private decoratee: ItemLoader
+    private cache: ItemCache
+
+    function load() async throws -> List<Item> {
+        let items = try await decoratee.load()
+        // Fire-and-forget: cache failure should not affect caller
+        Task { try? cache.save(items: items) }
+        return items
+    }
+}
+```
+
+### Composite (fallback chain)
+
+```
+class FallbackLoader implements ItemLoader {
+    private primary: ItemLoader
+    private fallback: ItemLoader
+
+    function load() async throws -> List<Item> {
+        do {
+            return try await primary.load()
+        } catch {
+            return try await fallback.load()
+        }
+    }
 }
 ```
 
@@ -285,53 +362,17 @@ test "didRequestFeed displays items on success" {
 
 ## Benefits
 
-1. **Testability** - Each layer testable in isolation
-2. **Flexibility** - Easy to swap implementations
-3. **Maintainability** - Clear responsibilities
-4. **Scalability** - Easy to add features
-5. **Framework Independence** - Business logic pure
-
----
-
-## Common Patterns
-
-### Decorator Pattern
-```
-class CachingFeedLoader implements FeedLoader {
-    private decoratee: FeedLoader
-    private cache: FeedCache
-    
-    function load(completion: Callback) {
-        decoratee.load { result ->
-            if (result.isSuccess) {
-                cache.save(result.value)
-            }
-            completion(result)
-        }
-    }
-}
-```
-
-### Composite Pattern
-```
-class FallbackFeedLoader implements FeedLoader {
-    private primary: FeedLoader
-    private fallback: FeedLoader
-    
-    function load(completion: Callback) {
-        primary.load { result ->
-            if (result.isSuccess) {
-                completion(result)
-            } else {
-                fallback.load(completion)
-            }
-        }
-    }
-}
-```
+1. **Testability** — each layer tests in isolation; only the composition root wires them
+2. **Replaceability** — swap `SQLiteItemStore` for `InMemoryItemStore` without touching business logic
+3. **Framework independence** — business logic never imports UIKit, SwiftUI, Android, React, etc.
+4. **Incremental migration** — add layers to existing code one boundary at a time
 
 ---
 
 ## Further Reading
+
+- `references/clean_architecture.md` — layer rules and boundary enforcement
+- `references/solid_principles.md` — SOLID applied to these layers
+- `references/design_patterns.md` — Decorator, Composite, Adapter, Null Object
+- `references/concurrency_patterns.md` — Swift-specific async/await, Scheduler, generic presenter
 - Clean Architecture by Robert C. Martin
-- Essential Developer: https://www.essentialdeveloper.com/

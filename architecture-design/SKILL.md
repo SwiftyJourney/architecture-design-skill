@@ -1,16 +1,18 @@
 ---
 name: architecture-design
-version: 1.0.0
-description: Transform code into clean, testable architecture using SOLID principles, Clean Architecture, and proven design patterns
-author: SwiftyJourney
-tags:
-  - architecture
-  - clean-architecture
-  - solid
-  - design-patterns
-  - testing
-  - dependency-injection
-  - swift
+description: >
+  Transforms code into clean, testable, and maintainable architecture using
+  SOLID principles, Clean Architecture, and proven design patterns. Use this
+  skill when you need to: design a new feature with proper separation of
+  concerns, refactor legacy or monolithic code, review architecture for SOLID
+  violations, establish dependency-injection boundaries, plan a testing
+  strategy, or document architectural decisions. Language-agnostic; includes
+  concrete Swift/iOS examples from the Essential Developer methodology.
+license: MIT
+metadata:
+  author: SwiftyJourney
+  version: "2.1.0"
+  tags: [architecture, clean-architecture, solid, swift-concurrency, dependency-injection, swift]
 ---
 
 # Architecture & Design Principles Skill
@@ -26,18 +28,6 @@ This skill guides you through a structured 5-step process to:
 3. **Define Clean Architecture** → Establish layers, boundaries, and dependency rules
 4. **Design Testing Strategy** → Plan unit tests, integration tests, and test boundaries
 5. **Document Decisions** → Create Architecture Decision Records (ADRs)
-
-## When to Use This Skill
-
-Use this skill when you need to:
-
-- Refactor legacy code into clean architecture
-- Design a new feature with proper separation of concerns
-- Review existing architecture for SOLID violations
-- Create testable components with clear boundaries
-- Document architectural decisions
-- Establish dependency injection patterns
-- Plan modular design strategies
 
 ## Core Philosophy
 
@@ -83,100 +73,49 @@ This skill follows these principles:
 
 **Objective**: Design components following SOLID principles
 
-**SOLID Breakdown**:
-
 #### S - Single Responsibility Principle (SRP)
 
-- Each class/module has one reason to change
-- Separate business logic from infrastructure
-- One responsibility per component
-
-**Example Violations**:
+Each class/module has one reason to change. Separate business logic from infrastructure.
 
 - ❌ A class that loads data AND presents it
-- ❌ A view controller that makes network requests
-- ❌ A model that knows how to save itself
-
-**Example Solutions**:
-
-- ✅ Separate UseCase for business logic
-- ✅ Separate Loader for data fetching
-- ✅ Separate Presenter for view logic
+- ✅ Separate `UseCase` for business logic; separate `Presenter` for view logic
 
 #### O - Open/Closed Principle (OCP)
 
-- Open for extension, closed for modification
-- Use protocols/interfaces for abstraction
-- Compose behaviors instead of inheritance
-
-**Example Pattern**:
+Open for extension via protocols/interfaces, closed for modification:
 
 ```swift
-// Open for extension via protocols
-protocol FeedLoader {
-    func load(completion: @escaping (Result<[FeedItem], Error>) -> Void)
+// Open for extension via protocol (Swift example — same idea in any language)
+protocol ItemLoader {
+    func load() async throws -> [Item]
 }
 
-// Closed for modification - implementations extend behavior
-class RemoteFeedLoader: FeedLoader { ... }
-class LocalFeedLoader: FeedLoader { ... }
-class FallbackFeedLoader: FeedLoader { ... }
+// Closed for modification — implementations extend behavior
+final class RemoteItemLoader: ItemLoader { ... }
+final class CachedItemLoader: ItemLoader { ... }
+final class FallbackItemLoader: ItemLoader { ... }
 ```
 
 #### L - Liskov Substitution Principle (LSP)
 
-- Subtypes must be substitutable for base types
-- Contracts must be honored by implementations
-- No surprising behavior in substitutions
+Subtypes must be substitutable for base types. Contracts must be honored by all implementations.
 
 #### I - Interface Segregation Principle (ISP)
 
-- Clients shouldn't depend on interfaces they don't use
-- Create focused, specific interfaces
-- Avoid fat interfaces
+Clients shouldn't depend on interfaces they don't use. Create focused, specific protocols.
 
-**Example**:
-
-```swift
-// ❌ Fat interface
-protocol DataStore {
-    func save(_ data: Data)
-    func load() -> Data
-    func delete()
-    func migrate()
-    func backup()
-}
-
-// ✅ Segregated interfaces
-protocol DataSaver {
-    func save(_ data: Data)
-}
-
-protocol DataLoader {
-    func load() -> Data
-}
-```
+- ❌ `protocol DataStore { func save(_:); func load(); func delete(); func migrate(); func backup() }`
+- ✅ `protocol ItemReader { func retrieve() throws -> [Item]? }` + separate `ItemCache`
 
 #### D - Dependency Inversion Principle (DIP)
 
-- High-level modules don't depend on low-level modules
-- Both depend on abstractions
-- Abstractions don't depend on details
-
-**Example**:
+High-level modules depend on abstractions, not concretions.
 
 ```swift
-// High-level policy
-class FeedViewController {
-    private let loader: FeedLoader  // Depends on abstraction
-    
-    init(loader: FeedLoader) {
-        self.loader = loader
-    }
+class ItemListViewController {
+    private let loader: ItemLoader  // depends on abstraction, not concrete type
+    init(loader: ItemLoader) { self.loader = loader }
 }
-
-// Low-level detail
-class APIFeedLoader: FeedLoader { ... }
 ```
 
 **Output**: SOLID-compliant component design
@@ -212,52 +151,14 @@ class APIFeedLoader: FeedLoader { ... }
 
 **Key Patterns**:
 
-1. **Use Cases (Interactors)**
-   - Contain business rules
-   - Orchestrate data flow
-   - Independent of UI and frameworks
-
-2. **Boundaries (Protocols/Interfaces)**
-   - Define contracts between layers
-   - Enable testability and flexibility
-   - Invert dependencies
-
-3. **Adapters**
-   - Convert data between layers
-   - Implement boundary protocols
-   - Handle framework-specific code
-
-4. **Composition Root**
-   - Wire dependencies together
-   - Configure the object graph
-   - Keep business logic clean
-
-**Example Structure**:
-
-```plaintext
-Feature/
-├── Domain/
-│   ├── UseCases/
-│   │   └── LoadFeedUseCase.swift
-│   ├── Entities/
-│   │   └── FeedItem.swift
-│   └── Boundaries/
-│       └── FeedLoader.swift
-├── Infrastructure/
-│   ├── Network/
-│   │   └── RemoteFeedLoader.swift
-│   └── Cache/
-│       └── LocalFeedLoader.swift
-└── Presentation/
-    ├── Views/
-    │   └── FeedViewController.swift
-    └── Presenters/
-        └── FeedPresenter.swift
-```
+1. **Use Cases** — contain business rules, orchestrate data flow, independent of UI and frameworks
+2. **Boundaries (Protocols)** — define contracts between layers, enable testability
+3. **Adapters** — convert data between layers, implement boundary protocols
+4. **Composition Root** — wire dependencies together, configure the object graph
 
 **Output**: Layered architecture with clear boundaries
 
-**Reference**: See `references/clean_architecture.md` for detailed layer definitions
+**Reference**: See `references/clean_architecture.md` for detailed layer definitions; `examples/generic/layered_architecture.md` for a language-agnostic example; `examples/swift/` for Swift/iOS real implementations
 
 ---
 
@@ -279,68 +180,23 @@ Feature/
 
 **Testing Boundaries**:
 
-1. **Domain Layer Testing** (Unit Tests)
-   - Test use cases in isolation
-   - Mock all dependencies
-   - Fast, reliable, independent
+1. **Domain Layer** (Unit Tests) — test use cases in isolation, mock all dependencies
+2. **Infrastructure Layer** (Integration Tests) — test adapters with real dependencies
+3. **Presentation Layer** (Unit Tests) — test presenters/view models, mock use cases
 
-2. **Infrastructure Layer Testing** (Integration Tests)
-   - Test adapters with real dependencies
-   - Test network, database, etc.
-   - May be slower, still valuable
-
-3. **Presentation Layer Testing** (Unit Tests)
-   - Test presenters/view models in isolation
-   - Mock use cases and boundaries
-   - Verify UI logic without UI framework
-
-**Key Testing Patterns**:
-
-**Test Doubles**:
+**Test Double Vocabulary**:
 
 - **Stubs**: Provide canned answers
 - **Spies**: Record calls for verification
 - **Mocks**: Verify behavior expectations
 - **Fakes**: Working implementations for testing
 
-**Example Test Structure**:
-
-```swift
-class LoadFeedUseCaseTests: XCTestCase {
-    func test_load_deliversItemsOnLoaderSuccess() {
-        let (sut, loader) = makeSUT()
-        let items = [makeItem(), makeItem()]
-        
-        expect(sut, toCompleteWith: .success(items), when: {
-            loader.complete(with: items)
-        })
-    }
-    
-    func test_load_deliversErrorOnLoaderFailure() {
-        let (sut, loader) = makeSUT()
-        
-        expect(sut, toCompleteWith: .failure(anyError()), when: {
-            loader.complete(with: anyError())
-        })
-    }
-    
-    // MARK: - Helpers
-    
-    private func makeSUT() -> (sut: LoadFeedUseCase, loader: LoaderSpy) {
-        let loader = LoaderSpy()
-        let sut = LoadFeedUseCase(loader: loader)
-        return (sut, loader)
-    }
-}
-```
-
 **Testing Strategies**:
 
-- Test behavior, not implementation
-- Test one thing at a time
-- Use descriptive test names
-- Arrange, Act, Assert pattern
-- Extract helper methods for clarity
+- Test behavior, not implementation details
+- Use native async test primitives; avoid manual callback synchronization when the language supports `await`
+- Factory helper pattern: create the system under test (SUT) and its dependencies together in a `makeSUT()` helper to keep individual test methods clean
+- Arrange, Act, Assert structure; extract helpers for clarity
 
 **Output**: Comprehensive testing strategy document
 
@@ -352,69 +208,29 @@ class LoadFeedUseCaseTests: XCTestCase {
 
 **Objective**: Create clear architectural documentation and decision records
 
-**Architecture Decision Records (ADRs)**:
+**ADR Format**:
 
-Document key architectural decisions using this format:
-
-```markdown
-# ADR-001: Use Protocol-Based Dependency Injection
-
-## Status
-Accepted
-
-## Context
-We need a way to decouple high-level business logic from low-level infrastructure 
-details while maintaining testability and flexibility.
-
-## Decision
-We will use protocol-based dependency injection throughout the codebase. All 
-dependencies will be injected through initializers, and abstractions will be 
-defined as Swift protocols.
-
-## Consequences
-
-### Positive
-- Enables easy unit testing with test doubles
-- Allows runtime composition of different implementations
-- Follows Dependency Inversion Principle
-- Makes dependencies explicit and clear
-
-### Negative
-- More protocols to maintain
-- Requires composition root configuration
-- Initial learning curve for team members
-
-## Alternatives Considered
-1. Service Locator pattern - Rejected due to hidden dependencies
-2. Property injection - Rejected due to optional dependencies
-3. Concrete types - Rejected due to tight coupling
 ```
+# ADR-NNN: <Decision Title>
+## Status: Accepted | Superseded | Deprecated
+## Context: Why this decision was needed
+## Decision: What was decided
+## Consequences: Positive and negative outcomes
+## Alternatives Considered: What was rejected and why
+```
+
+See `examples/generic/` for a complete ADR example.
 
 **Documentation Requirements**:
 
-1. **Architecture Overview**
-   - System context diagram
-   - Component diagram
-   - Layer relationships
-
-2. **Component Documentation**
-   - Purpose and responsibilities
-   - Dependencies and boundaries
-   - Usage examples
-
-3. **Design Patterns Used**
-   - Which patterns and why
-   - Implementation examples
-   - Trade-offs considered
-
-4. **Testing Strategy**
-   - What gets tested and how
-   - Test organization
-   - Mock/stub strategies
+1. **Architecture Overview** — system context diagram, component diagram, layer relationships
+2. **Component Documentation** — purpose, dependencies, usage examples
+3. **Design Patterns Used** — which patterns and why, trade-offs
+4. **Testing Strategy** — what gets tested and how
 
 **Output**: Complete architectural documentation
 
-**Reference**: See `examples/` for real-world examples
+**Reference**: See `references/` for detailed documentation patterns
 
 ---
 
@@ -424,62 +240,33 @@ defined as Swift protocols.
 
 - Separate business logic from infrastructure
 - Depend on abstractions, not concretions
-- Make dependencies explicit through injection
+- Make dependencies explicit through initializer injection
 - Write tests for all business logic
-- Keep components small and focused
-- Document significant decisions
-- Use composition over inheritance
+- Use async IO protocols at network/network boundaries; synchronous protocols for in-process storage
+- Isolate presentation types to the main/UI thread using the language's concurrency primitives
 - Design for testability from the start
 
 ### DON'T ❌
 
 - Let business logic depend on frameworks
 - Use singletons for dependency management
-- Skip testing because "it's too hard"
 - Mix presentation and business logic
 - Create god classes with multiple responsibilities
-- Couple modules tightly together
-- Ignore the Single Responsibility Principle
-- Make untestable components
+- Use manual callback/completion-handler patterns where the language's native async/await is available
+- Dispatch to the UI thread manually — use structured concurrency instead
+
+> **Swift/iOS:** Use `async throws` at network boundaries, sync `throws` at cache boundaries, `@MainActor` for presentation types, and `Sendable` for value types crossing actor boundaries. See the Swift Concurrency section below.
 
 ---
 
 ## Common Architectural Patterns
 
-This skill supports various architectural patterns:
+1. **Clean Architecture** (Recommended) — clear separation of concerns, dependency rule: inward only
+2. **Hexagonal Architecture (Ports & Adapters)** — business logic at the center, ports define boundaries
+3. **MVVM** — separation of UI and logic, testable view models
+4. **MVC** — traditional separation, controller as composition root
 
-1. **Clean Architecture** (Recommended)
-   - Clear separation of concerns
-   - Dependency rule: inward only
-   - Framework independence
-
-2. **Hexagonal Architecture (Ports & Adapters)**
-   - Business logic at the center
-   - Ports define boundaries
-   - Adapters implement ports
-
-3. **MVVM (Model-View-ViewModel)**
-   - Separation of UI and logic
-   - Testable view models
-   - Data binding support
-
-4. **MVC (Model-View-Controller)**
-   - Traditional separation
-   - Can be combined with Clean Architecture
-   - Controller as composition root
-
-**Reference**: See `examples/generic/` for pattern implementations
-
----
-
-## Integration with Requirements Engineering
-
-This skill works seamlessly with the Requirements Engineering Skill:
-
-1. Start with requirements → Use Cases → BDD scenarios
-2. Apply this skill → Architecture → Component design
-3. Implement → Following architectural patterns
-4. Test → Using defined testing strategy
+**Reference**: See `examples/generic/layered_architecture.md` for a language-agnostic layered example; `examples/swift/` for MVVM+Coordinator, Composition Root, and Two-Layer View in Swift/iOS
 
 ---
 
@@ -487,10 +274,13 @@ This skill works seamlessly with the Requirements Engineering Skill:
 
 ### Swift/iOS
 
-- Use protocols for abstractions
-- Leverage Swift's value types
-- Apply Composition Root pattern in AppDelegate/SceneDelegate
-- Use dependency injection containers if needed
+- Use `async throws` protocols for network boundaries
+- Use sync `throws` for cache/store boundaries; bridge to async via `Scheduler` protocol
+- Apply `@MainActor` to presentation types (`ResourceView`, `LoadResourcePresenter`)
+- Mark domain value types `Sendable` (e.g. `FeedImage: Hashable, Sendable`)
+- Use `LoadResourcePresenter<Resource, View>` generic presenter — one type for all features
+- Use `WeakRefVirtualProxy<T>` to break retain cycles without per-type boilerplate
+- Apply Composition Root pattern in `SceneDelegate`; extract infrastructure into `@MainActor` service objects (see `examples/swift/composition_root.md`)
 
 **Reference**: See `examples/swift/` for Swift-specific patterns
 
@@ -505,22 +295,128 @@ This skill works seamlessly with the Requirements Engineering Skill:
 
 ---
 
+## Swift Concurrency *(Swift/iOS only)*
+
+> The concepts in this section — async IO boundaries, main-thread isolation, value-type thread safety, generic presenter, memory-safe proxies — apply universally. The syntax and APIs below are Swift-specific. For the detailed implementations, see `references/concurrency_patterns.md`.
+
+### Async Protocol Boundaries
+
+Network protocols use `async throws`; store protocols use sync `throws`:
+
+```swift
+// Network boundary — async because IO is inherently async
+public protocol HTTPClient {
+    func get(from url: URL) async throws -> (Data, HTTPURLResponse)
+}
+
+// Cache/store boundary — sync because the store runs on its own queue (bridged via Scheduler)
+// Apply this pattern to any persistent store: CoreData, SQLite, in-memory, Realm, etc.
+public protocol ItemStore {
+    func delete() throws
+    func insert(_ items: [LocalItem], timestamp: Date) throws
+    func retrieve() throws -> CachedItems?
+}
+// Essential Feed uses FeedStore with identical structure for FeedImage caching
+```
+
+### @MainActor Isolation
+
+Presentation layer types are `@MainActor` — no manual thread dispatching:
+
+```swift
+@MainActor public protocol ResourceView {
+    associatedtype ResourceViewModel
+    func display(_ viewModel: ResourceViewModel)
+}
+
+@MainActor public final class LoadResourcePresenter<Resource, View: ResourceView> {
+    public typealias Mapper = (Resource) throws -> View.ResourceViewModel
+    public init(resourceView: View, loadingView: ResourceLoadingView,
+                errorView: ResourceErrorView, mapper: @escaping Mapper)
+    public init(resourceView: View, loadingView: ResourceLoadingView,
+                errorView: ResourceErrorView) where Resource == View.ResourceViewModel
+    public func didStartLoading()
+    public func didFinishLoading(with resource: Resource)
+    public func didFinishLoading(with error: Error)
+}
+```
+
+### Sendable Value Types
+
+Domain entities crossing actor boundaries must be `Sendable`. All stored properties must themselves be `Sendable`; the compiler verifies this:
+
+```swift
+// Generic pattern — apply to any domain entity
+public struct Item: Hashable, Sendable {
+    public let id: UUID
+    public let title: String
+    // String, UUID, URL are all Sendable — compiler is satisfied
+}
+
+// Concrete example from Essential Feed:
+// public struct FeedImage: Hashable, Sendable { ... }
+```
+
+### WeakRefVirtualProxy
+
+Prevents retain cycles via a single generic type with conditional conformances:
+
+```swift
+final class WeakRefVirtualProxy<T: AnyObject> {
+    private weak var object: T?
+    init(_ object: T) { self.object = object }
+}
+
+extension WeakRefVirtualProxy: ResourceErrorView where T: ResourceErrorView {
+    func display(_ viewModel: ResourceErrorViewModel) { object?.display(viewModel) }
+}
+
+extension WeakRefVirtualProxy: ResourceLoadingView where T: ResourceLoadingView {
+    func display(_ viewModel: ResourceLoadingViewModel) { object?.display(viewModel) }
+}
+```
+
+### Scheduler Protocol
+
+Bridges sync `FeedStore` into async contexts without making the store async:
+
+```swift
+protocol Scheduler {
+    @MainActor
+    func schedule<T>(_ action: @escaping @Sendable () throws -> T) async rethrows -> T
+}
+```
+
+**Reference**: See `references/concurrency_patterns.md` for full implementations and migration guide
+
+---
+
+## Integration with Requirements Engineering
+
+1. Start with requirements → Use Cases → BDD scenarios
+2. Apply this skill → Architecture → Component design
+3. Implement → Following architectural patterns
+4. Test → Using defined testing strategy
+
+---
+
 ## References
 
-Inside the `references/` directory, you'll find:
+Inside `references/`:
 
 - **clean_architecture.md** - Clean Architecture layers and rules
 - **solid_principles.md** - Detailed SOLID explanations with examples
 - **design_patterns.md** - Common patterns (Adapter, Decorator, Composite, Null Object, etc.)
-- **null_object_pattern.md** - Null Object Pattern in detail with testing examples
+- **null_object_pattern.md** - Null Object Pattern with testing examples
 - **command_query_separation.md** - CQS principle for cache design
 - **dependency_management.md** - DI patterns and strategies
 - **testing_strategies.md** - Testing patterns and best practices
 - **modular_design.md** - Module organization and boundaries
+- **concurrency_patterns.md** - Swift Concurrency: async/await, @MainActor, Sendable, Scheduler
 
-Inside the `examples/` directory:
+Inside `examples/`:
 
-- **swift/** - Real implementations from Essential Feed
+- **swift/** - Real implementations from Essential Feed (Swift 6)
 - **generic/** - Language-agnostic examples
 
 ---
@@ -549,4 +445,6 @@ Based on the Essential Developer's proven architecture methodology:
 
 ## Version History
 
+- **2.1.0** - Generalized for multi-project use: domain-neutral SOLID examples, separated Swift-specific guidance, added scope labels, created generic ADR template and updated generic architecture example
+- **2.0.0** - Swift 6 migration: async/await, @MainActor, Sendable, LoadResourcePresenter, Scheduler, WeakRefVirtualProxy
 - **1.0.0** - Initial release with 5-step process
